@@ -1,5 +1,5 @@
 from flask import Flask
-from models import db
+from models import db, User
 
 app = Flask(__name__)
 
@@ -11,7 +11,7 @@ db = SQLAlchemy(app)
 def home():
     return {'message': 'Sanctuary Signal API is running'}
 
-@app.route('init-db')
+@app.route('/init-db')
 def init_db():
     db.create_all()
     return {'message': 'Database initialized successfully'}
