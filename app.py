@@ -1,4 +1,5 @@
-from flask import Flask, render_template
+from urllib import request
+from flask import Flask, render_template, jsonify
 from flask_sqlalchemy import SQLAlchemy
 from models import db, User
 
@@ -12,8 +13,13 @@ db.init_app(app)
 def home():
     return {'message': 'Sanctuary Signal API is running'}
 
-@app.route('/signup', methods=['GET'])
+@app.route('/signup', methods=['GET', 'POST'])
 def signup():
+    if request.method == 'POST':
+        data = request.get_json()
+        app.logger.info(f"Signup data: {data}")
+        return jsonify({"message": "Signup received"})
+
     return render_template('signup.html')
 
 @app.route('/init-db')
