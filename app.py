@@ -31,6 +31,15 @@ def login():
 
     return render_template('login.html')
 
+@app.route('/report', methods=['GET', 'POST'])
+def report():
+    if request.method == 'POST':
+        data = request.get_json()
+        app.logger.info(f"Report data: {data}")
+        return jsonify({"message": "Report received"})
+
+    return render_template('report.html')
+
 @app.route('/init-db')
 def init_db():
     with app.app_context():
