@@ -2,6 +2,7 @@ from flask import Flask, render_template, jsonify, request
 from flask_sqlalchemy import SQLAlchemy
 from models import db, User
 import random
+import re
 import json
 
 app = Flask(__name__)
@@ -13,12 +14,18 @@ db.init_app(app)
 @app.route('/')
 def home():
     return render_template('home.html')
+import re
+
+def is_valid_e164(number):
+    return re.match(r'^\+[1-9]\d{1,14}$', number) is not None
 
 @app.route('/signup', methods=['GET', 'POST'])
 def signup():
     if request.method == 'POST':
         data = request.get_json()
         app.logger.info(f"Signup data: {data}")
+        if not is_valid_e164(data['phone_number']):
+            return jsonify({"error": "Phone number must be in expected E.164 format, try again"}), 400
 
         if User.query.filter_by(username=data['username']).first():
             return jsonify({"error": "Username already exists"}), 400
