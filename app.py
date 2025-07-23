@@ -1,5 +1,4 @@
-from urllib import request
-from flask import Flask, render_template, jsonify
+from flask import Flask, render_template, jsonify, request
 from flask_sqlalchemy import SQLAlchemy
 from models import db, User
 
