@@ -1,4 +1,4 @@
-from flask import Flask
+from flask import Flask, render_template
 from flask_sqlalchemy import SQLAlchemy
 from models import db, User
 
@@ -11,6 +11,10 @@ db.init_app(app)
 @app.route('/')
 def home():
     return {'message': 'Sanctuary Signal API is running'}
+
+@app.route('/signup', methods=['GET'])
+def signup():
+    return render_template('signup.html')
 
 @app.route('/init-db')
 def init_db():
