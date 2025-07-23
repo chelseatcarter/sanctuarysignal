@@ -10,7 +10,7 @@ db.init_app(app)
 
 @app.route('/')
 def home():
-    return {'message': 'Sanctuary Signal API is running'}
+    return render_template('home.html')
 
 @app.route('/signup', methods=['GET', 'POST'])
 def signup():
