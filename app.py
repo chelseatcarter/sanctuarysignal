@@ -21,6 +21,15 @@ def signup():
 
     return render_template('signup.html')
 
+@app.route('/login', methods=['GET', 'POST'])
+def login():
+    if request.method == 'POST':
+        data = request.get_json()
+        app.logger.info(f"Login data: {data}")
+        return jsonify({"message": "Login received"})
+
+    return render_template('login.html')
+
 @app.route('/init-db')
 def init_db():
     with app.app_context():
