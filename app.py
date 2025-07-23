@@ -6,7 +6,7 @@ app = Flask(__name__)
 
 # Initialize the database
 app.config['SQLALCHEMY_DATABASE_URI'] = 'postgresql://admin:s23RnnVoH5OQL5rbsxqC8FI3MckaOsqZ@dpg-d1vcvher433s73fiogn0-a.ohio-postgres.render.com/sanctuarysignal'
-db = SQLAlchemy(app)
+db.init_app(app)
 
 @app.route('/')
 def home():
@@ -14,7 +14,8 @@ def home():
 
 @app.route('/init-db')
 def init_db():
-    db.create_all()
+    with app.app_context():
+        db.create_all()
     return {'message': 'Database initialized successfully'}
 
 if __name__ == '__main__':
