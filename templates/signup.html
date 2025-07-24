@@ -84,6 +84,7 @@
             const result = await res.json();
             if (res.ok) {
                 alert(result.message || 'Account created!');
+                window.location.href = '/';
             } else {
                 alert(result.error || 'Something went wrong.');
             }

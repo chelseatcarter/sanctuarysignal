@@ -14,7 +14,6 @@ db.init_app(app)
 @app.route('/')
 def home():
     return render_template('home.html')
-import re
 
 def is_valid_e164(number):
     return re.match(r'^\+[1-9]\d{1,14}$', number) is not None
@@ -45,6 +44,7 @@ def signup():
         return jsonify({"message": "Signup successful"}), 201
 
     return render_template('signup.html')
+
 @app.route('/debug/users')
 def list_users():
     users = User.query.all()
@@ -108,7 +108,6 @@ def fake_events():
         })
 
     return jsonify(events)
-
 
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=5000, debug=True)
