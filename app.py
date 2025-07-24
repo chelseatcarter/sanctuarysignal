@@ -29,6 +29,9 @@ def signup():
         if User.query.filter_by(username=data['username']).first():
             return jsonify({"error": "Username already exists"}), 400
 
+        if User.query.filter_by(phone_number=data['phone_number']).first():
+            return jsonify({"error": "Phone number already exists"}), 400
+
         user = User(
             username=data['username'],
             first_name=data['first_name'],
