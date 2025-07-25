@@ -1,6 +1,6 @@
 from flask import Flask, render_template, jsonify, request
 from flask_sqlalchemy import SQLAlchemy
-from models import db, User
+from models import ZipCode, db, User
 import random
 import re
 import json
@@ -31,13 +31,20 @@ def signup():
 
         if User.query.filter_by(phone_number=data['phone_number']).first():
             return jsonify({"error": "Phone number already exists"}), 400
+        
+        # Lookup county_name from zip_codes table
+        zip_record = ZipCode.query.filter_by(zip_code=data['zip_code']).first()
+        if not zip_record:
+            return jsonify({"error": "Invalid ZIP code"}), 400
 
+        # Now stores county_name from zip_codes table
         user = User(
             username=data['username'],
             first_name=data['first_name'],
             last_name=data['last_name'],
             phone_number=data['phone_number'],
             zip_code=data['zip_code'],
+            county_name=zip_record.county_name
         )
         user.set_password(data['password'])
 

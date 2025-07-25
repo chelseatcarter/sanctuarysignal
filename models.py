@@ -14,7 +14,8 @@ class User(db.Model):
     last_name = db.Column(db.String(100), nullable=False)
     phone_number = db.Column(db.String(120), unique=True, nullable=False)
     verified = db.Column(db.Boolean, default=False)
-    zip_code = db.Column(db.Integer, nullable=False)
+    zip_code = db.Column(db.String(10), nullable=False)
+    county_name = db.Column(db.String(100), nullable=False)
     banned = db.Column(db.Boolean, default=False)
 
     created_at = db.Column(db.DateTime, server_default=db.func.now())
@@ -25,3 +26,9 @@ class User(db.Model):
 
     def check_password(self, password):
         return check_password_hash(self.password_hash, password)
+    
+class ZipCode(db.Model):
+    __tablename__ = 'zip_codes'
+    id = db.Column(db.Integer, primary_key=True, autoincrement=True)
+    zip_code = db.Column(db.String(10), primary_key=True)
+    county_name = db.Column(db.String(100), nullable=False)
