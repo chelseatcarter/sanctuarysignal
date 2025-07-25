@@ -1,6 +1,6 @@
 from flask import Flask, render_template, jsonify, request
 from flask_sqlalchemy import SQLAlchemy
-from models import ZipCode, db, User
+from models import ZipCode, db, User, Alert, AlertVote
 import random
 import re
 import json
