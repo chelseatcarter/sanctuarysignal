@@ -1,7 +1,6 @@
 # models.py
 from flask_sqlalchemy import SQLAlchemy
 from werkzeug.security import generate_password_hash, check_password_hash
-import datetime
 
 db = SQLAlchemy()
 
@@ -39,7 +38,7 @@ class Alert(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     user_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False)
     photo = db.Column(db.String(255))
-    timestamp = db.Column(db.DateTime, default=datetime.utcnow)
+    timestamp = db.Column(db.DateTime, server_default=db.func.now())
     address = db.Column(db.String(255), nullable=False)
     alert_type = db.Column(db.String(100), nullable=False)
     lat = db.Column(db.Float)
