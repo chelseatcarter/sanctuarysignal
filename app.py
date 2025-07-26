@@ -1,4 +1,4 @@
-from flask import Flask, render_template, jsonify, request
+from flask import Flask, render_template, jsonify, request, session, redirect
 from flask_sqlalchemy import SQLAlchemy
 from models import ZipCode, db, User, Alert, AlertVote
 import random
@@ -6,6 +6,7 @@ import re
 import json
 
 app = Flask(__name__)
+app.secret_key = 'super-secret-key'
 
 # Initialize the database
 app.config['SQLALCHEMY_DATABASE_URI'] = 'postgresql://admin:s23RnnVoH5OQL5rbsxqC8FI3MckaOsqZ@dpg-d1vcvher433s73fiogn0-a.ohio-postgres.render.com/sanctuarysignal'
@@ -13,7 +14,9 @@ db.init_app(app)
 
 @app.route('/')
 def home():
-    return render_template('home.html')
+    user_id = session.get('user_id')
+    user = User.query.get(user_id) if user_id else None
+    return render_template('home.html', user=user)
 
 def is_valid_e164(number):
     return re.match(r'^\+[1-9]\d{1,14}$', number) is not None
@@ -75,6 +78,7 @@ def login():
 
         user = User.query.filter_by(username=data['username']).first()
         if user and user.check_password(data['password']):
+            session['user_id'] = user.id # Set session
             return jsonify({
                 "message": "Login successful",
                 "user_id": user.id,
@@ -86,6 +90,10 @@ def login():
 
     return render_template('login.html')
 
+@app.route('/logout')
+def logout():
+    session.clear()
+    return redirect('/login')
 
 @app.route('/report', methods=['GET', 'POST'])
 def report():

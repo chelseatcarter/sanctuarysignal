@@ -45,9 +45,9 @@
             <h1 class="display-4">Sanctuary Signal</h1>
             <p class="lead mt-3">A safer world starts with awareness. Join the network that helps protect communities.
             </p>
-        {% if not user %}
+            {% if not user %}
             <a href="/signup" class="btn btn-signal mt-4 px-4 py-2">Get Started</a>
-        {% endif %}
+            {% endif %}
         </div>
 
         <div class="row text-center mt-5">
@@ -64,13 +64,19 @@
                 <p>Empowering individuals to protect each other through shared awareness.</p>
             </div>
         </div>
-    {% if user %}
+        {% if user %}
         <div class="text-center mt-4">
             <a href="/report" class="btn btn-signal px-5 py-3 fs-5 shadow-sm">
                 ➕ Report an Incident
             </a>
         </div>
-    {% endif %}
+        {% endif %}
+
+        {% if user %}
+        <div class="text-center mt-3">
+            <a href="/logout" class="btn btn-outline-secondary">Log Out</a>
+        </div>
+        {% endif %}
         <div id="map"></div>
     </div>
 
