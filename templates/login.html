@@ -79,6 +79,7 @@
                 document.getElementById('verify-section').style.display = 'block';
                 sessionStorage.setItem('username', formData.username);
                 sessionStorage.setItem('password', formData.password);
+                sessionStorage.setItem('phone_number', result.phone_number);
             } else {
                 alert(result.error || 'Something went wrong. Double check your username and/or password.');
             }
@@ -87,6 +88,7 @@
         async function verifyCode() {
             const username = sessionStorage.getItem('username');
             const password = sessionStorage.getItem('password');
+            const phone_number = sessionStorage.getItem('phone_number');
             const code = document.getElementById('verification_code').value;
 
             const res = await fetch('/verify', {
@@ -94,7 +96,7 @@
                 headers: {
                     'Content-Type': 'application/json'
                 },
-                body: JSON.stringify({ username, code })
+                body: JSON.stringify({ phone_number, code })
             });
 
             const result = await res.json();
