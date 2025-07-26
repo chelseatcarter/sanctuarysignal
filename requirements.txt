@@ -10,3 +10,4 @@ gunicorn
 Flask-SQLAlchemy
 psycopg2-binary
 twilio
+python-dotenv
