@@ -24,6 +24,7 @@ def home():
 
 TWILIO_ACCOUNT_SID = os.getenv("TWILIO_ACCOUNT_SID")
 TWILIO_AUTH_TOKEN = os.getenv("TWILIO_AUTH_TOKEN")
+VERIFY_SID = os.getenv("TWILIO_VERIFY_SERVICE_SID")
 twilio_client = Client(TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN)
 
 
@@ -63,6 +64,8 @@ def signup():
         db.session.add(user)
         db.session.commit()
 
+        verification = twilio_client.verify.services(VERIFY_SID).verifications.create(to=user.phone_number, channel='sms')
+
         return jsonify({"message": "Signup successful"}), 201
 
     return render_template('signup.html')
@@ -73,17 +76,21 @@ def verify():
     phone = data['phone_number']
     code = data['code']
 
-    # To-Do (Dami): Implement actual verification logic based on Twilio API
-
+    check = twilio_client.verify.services(VERIFY_SID).verification_checks.create(to=phone, code=code)
+    if check.status != "approved":
+        return jsonify({"error": "Invalid verification code"}), 400
+    
     # Find user by phone number and set them to verified
     user = User.query.filter_by(phone_number=phone).first()
     if not user:
         return jsonify({"error": "User not found"}), 404
     
-    user.verified = True
-    db.session.commit()
+    if check.status == "approved":
+        user.verified = True
+        db.session.add(user)
+        db.session.commit()
 
-    session['user_id'] = user.id  # Set session for the user
+        session['user_id'] = user.id  # Set session for the user
 
     return jsonify({"message": "Phone number verified and user logged in!"}), 200
 
@@ -109,9 +116,10 @@ def login():
         if user and user.check_password(data['password']):
 
             if not user.verified:
+                verification = twilio_client.verify.services(VERIFY_SID).verifications.create(to=user.phone_number, channel='sms')
                 return jsonify({
                     "error": "Account not verified",
-                    "phone_number": user.phone_number  # ✅ now the frontend can grab it
+                    "phone_number": user.phone_number  # now the frontend can grab it
                 }), 403
 
             if user.banned:
@@ -147,25 +155,36 @@ def report():
 def send_sms():
     data = request.get_json()
     from_number = data.get("from_number")  # Supplied Twilio number
-    to_number = data.get("to_number")      # User's phone
+    county_name = data.get("county_name")  # County name for the alert
     message_body = data.get("message")
 
-    if not all([from_number, to_number, message_body]):
-        return jsonify({"error": "Missing from_number, to_number, or message"}), 400
+    if not all([from_number, county_name, message_body]):
+        return jsonify({"error": "Missing from_number, county_name, or message"}), 400
 
-    if not (is_valid_e164(from_number) and is_valid_e164(to_number)):
+    if not is_valid_e164(from_number):
         return jsonify({"error": "Invalid phone number format (must be E.164)"}), 400
-
-    try:
-        message = twilio_client.messages.create(
-            body=message_body,
-            from_=from_number,
-            to=to_number
-        )
-        return jsonify({"status": "Message sent", "sid": message.sid}), 200
-    except Exception as e:
-        return jsonify({"error": str(e)}), 500
     
+    # Get phone numbers of users in the county
+    users = User.query.filter_by(county_name=county_name, verified=True, banned=False).all()
+    phone_numbers = [u.phone_number for u in users if is_valid_e164(u.phone_number)]
+
+    if not phone_numbers:
+        return jsonify({"error": "No valid phone numbers found for this county"}), 404
+
+    # Send SMS to all phone numbers
+    results = []
+    for to_number in phone_numbers:
+        try:
+            message = twilio_client.messages.create(
+                body=message_body,
+                from_=from_number,
+                to=to_number
+            )
+            results.append({"to": to_number, "status": "sent", "sid": message.sid})
+        except Exception as e:
+            results.append({"to": to_number, "status": "failed", "error": str(e)})
+
+    return jsonify({"results": results}), 200
 
 @app.route('/init-db')
 def init_db():
@@ -174,18 +193,15 @@ def init_db():
     return {'message': 'Database initialized successfully'}
 
 @app.route('/api/events')
-def fake_events():
-    # Generate 10 random points near Detroit
-    base_lat, base_lng = 42.3314, -83.0458
+def get_alerts_for_map():
+    alerts = Alert.query.all()
     events = []
 
-    for i in range(10):
-        lat_offset = random.uniform(-0.03, 0.03)
-        lng_offset = random.uniform(-0.03, 0.03)
+    for alert in alerts:
         events.append({
-            'lat': base_lat + lat_offset,
-            'lng': base_lng + lng_offset,
-            'title': f"Fake Incident #{i + 1}"
+            'lat': alert.lat,
+            'lng': alert.lng,
+            'title': alert.alert_type
         })
 
     return jsonify(events)
