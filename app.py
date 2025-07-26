@@ -235,6 +235,11 @@ def display_alert_details(alert_id):
     }
     return jsonify(event)
 
+@app.route('/alerts/<int:alert_id>')
+def alert_detail_page(alert_id):
+    alert = Alert.query.get_or_404(alert_id)
+    return render_template('alert_detail.html', alert=alert)
+
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=5000, debug=True)
 
