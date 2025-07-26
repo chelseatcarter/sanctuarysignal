@@ -67,6 +67,26 @@ def signup():
 
     return render_template('signup.html')
 
+@app.route('/verify', methods=['POST'])
+def verify():
+    data = request.get_json()
+    phone = data['phone_number']
+    code = data['code']
+
+    # To-Do (Dami): Implement actual verification logic based on Twilio API
+
+    # Find user by phone number and set them to verified
+    user = User.query.filter_by(phone_number=phone).first()
+    if not user:
+        return jsonify({"error": "User not found"}), 404
+    
+    user.verified = True
+    db.session.commit()
+
+    session['user_id'] = user.id  # Set session for the user
+
+    return jsonify({"message": "Phone number verified and user logged in!"}), 200
+
 @app.route('/debug/users')
 def list_users():
     users = User.query.all()
@@ -87,7 +107,17 @@ def login():
 
         user = User.query.filter_by(username=data['username']).first()
         if user and user.check_password(data['password']):
-            session['user_id'] = user.id # Set session
+
+            if not user.verified:
+                return jsonify({
+                    "error": "Account not verified",
+                    "phone_number": user.phone_number  # ✅ now the frontend can grab it
+                }), 403
+
+            if user.banned:
+                return jsonify({"error": "Your account has been banned."}), 403
+
+            session['user_id'] = user.id  # Set session
             return jsonify({
                 "message": "Login successful",
                 "user_id": user.id,

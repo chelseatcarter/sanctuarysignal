@@ -37,7 +37,12 @@
                     </div>
                     <button type="submit" class="btn btn-signal w-100">Login</button>
                 </form>
-
+                <div id="verify-section" class="mt-4" style="display: none;">
+                    <label for="verification_code" class="form-label">Enter Verification Code *</label>
+                    <input type="text" class="form-control mb-3" id="verification_code" placeholder="e.g. 123456"
+                        required>
+                    <button class="btn btn-signal w-100" onclick="verifyCode()">Verify & Log In</button>
+                </div>
                 <div class="text-center mt-3">
                     <p>Don't have an account?</p>
                     <a href="/signup" class="btn btn-outline-primary w-100">Sign Up</a>
@@ -56,8 +61,6 @@
                 password: form.password.value
             };
 
-            console.log('Submitting form data:', formData);
-
             const res = await fetch('/login', {
                 method: 'POST',
                 headers: {
@@ -67,13 +70,57 @@
             });
 
             const result = await res.json();
+
             if (res.ok) {
                 alert(result.message || 'Log in successful!');
                 window.location.href = '/';
+            } else if (res.status === 403 && result.error.includes('not verified')) {
+                alert(result.error);
+                document.getElementById('verify-section').style.display = 'block';
+                sessionStorage.setItem('username', formData.username);
+                sessionStorage.setItem('password', formData.password);
+                sessionStorage.setItem('phone_number', result.phone_number);
             } else {
                 alert(result.error || 'Something went wrong. Double check your username and/or password.');
             }
         });
+
+        async function verifyCode() {
+            const username = sessionStorage.getItem('username');
+            const password = sessionStorage.getItem('password');
+            const phone_number = sessionStorage.getItem('phone_number');
+            const code = document.getElementById('verification_code').value;
+
+            const res = await fetch('/verify', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({ phone_number, code })
+            });
+
+            const result = await res.json();
+            if (res.ok) {
+                alert(result.message || 'Verification successful! Logging you in...');
+                // Auto-login after verification
+                const loginRes = await fetch('/login', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ username, password })
+                });
+
+                const loginResult = await loginRes.json();
+                if (loginRes.ok) {
+                    window.location.href = '/';
+                } else {
+                    alert(loginResult.error || 'Login failed after verification.');
+                }
+            } else {
+                alert(result.error || 'Verification failed. Please try again.');
+            }
+        }
     </script>
 </body>
 
