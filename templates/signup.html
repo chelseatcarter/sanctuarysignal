@@ -58,6 +58,12 @@
                         <a href="/login" class="btn btn-outline-secondary w-100">Log In</a>
                     </div>
                 </form>
+                <div id="verify-section" class="mt-4" style="display: none;">
+                    <label for="verification_code" class="form-label">Enter Verification Code *</label>
+                    <input type="text" class="form-control mb-3" id="verification_code" placeholder="e.g. 123456"
+                        required>
+                    <button class="btn btn-signal w-100" onclick="verifyCode()">Verify Code</button>
+                </div>
             </div>
         </div>
     </div>
@@ -89,11 +95,34 @@
             const result = await res.json();
             if (res.ok) {
                 alert(result.message || 'Account created!');
-                window.location.href = '/';
+                document.getElementById('verify-section').style.display = 'block';
+                window.scrollTo({ top: document.body.scrollHeight, behavior: 'smooth' });
+                sessionStorage.setItem('phone_number', formData.phone_number); // Save phone number for verification
             } else {
                 alert(result.error || 'Something went wrong.');
             }
         });
+
+        async function verifyCode() {
+            const phone_number = sessionStorage.getItem('phone_number');
+            const code = document.getElementById('verification_code').value;
+
+            const res = await fetch('/verify', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({ phone_number, code })
+            });
+
+            const result = await res.json();
+            if (res.ok) {
+                alert(result.message || 'Phone number verified!');
+                window.location.href = '/';  // Redirect after successful verification
+            } else {
+                alert(result.error || 'Verification failed. Please try again.');
+            }
+        }
     </script>
 </body>
 
