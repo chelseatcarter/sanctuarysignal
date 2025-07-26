@@ -4,6 +4,9 @@ from models import ZipCode, db, User, Alert, AlertVote
 import random
 import re
 import json
+import os
+from dotenv import load_dotenv
+from twilio.rest import Client
 
 app = Flask(__name__)
 app.secret_key = 'super-secret-key'
@@ -17,6 +20,12 @@ def home():
     user_id = session.get('user_id')
     user = User.query.get(user_id) if user_id else None
     return render_template('home.html', user=user)
+
+
+TWILIO_ACCOUNT_SID = os.getenv("TWILIO_ACCOUNT_SID")
+TWILIO_AUTH_TOKEN = os.getenv("TWILIO_AUTH_TOKEN")
+twilio_client = Client(TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN)
+
 
 def is_valid_e164(number):
     return re.match(r'^\+[1-9]\d{1,14}$', number) is not None
@@ -103,6 +112,30 @@ def report():
         return jsonify({"message": "Report received"})
 
     return render_template('report.html')
+
+@app.route('/send_sms', methods=['POST'])
+def send_sms():
+    data = request.get_json()
+    from_number = data.get("from_number")  # Supplied Twilio number
+    to_number = data.get("to_number")      # User's phone
+    message_body = data.get("message")
+
+    if not all([from_number, to_number, message_body]):
+        return jsonify({"error": "Missing from_number, to_number, or message"}), 400
+
+    if not (is_valid_e164(from_number) and is_valid_e164(to_number)):
+        return jsonify({"error": "Invalid phone number format (must be E.164)"}), 400
+
+    try:
+        message = twilio_client.messages.create(
+            body=message_body,
+            from_=from_number,
+            to=to_number
+        )
+        return jsonify({"status": "Message sent", "sid": message.sid}), 200
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+    
 
 @app.route('/init-db')
 def init_db():
