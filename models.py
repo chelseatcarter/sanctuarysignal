@@ -41,6 +41,7 @@ class Alert(db.Model):
     timestamp = db.Column(db.DateTime, server_default=db.func.now())
     address = db.Column(db.String(255), nullable=False)
     alert_type = db.Column(db.String(100), nullable=False)
+    description = db.Column(db.Text, nullable=False)
     lat = db.Column(db.Float)
     lng = db.Column(db.Float)
     false_votes = db.Column(db.Integer, default=0)
