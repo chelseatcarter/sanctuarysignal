@@ -192,7 +192,7 @@ def init_db():
         db.create_all()
     return {'message': 'Database initialized successfully'}
 
-@app.route('/api/events')
+@app.route('/api/alerts/map')
 def get_alerts_for_map():
     alerts = Alert.query.all()
     events = []
@@ -205,6 +205,35 @@ def get_alerts_for_map():
         })
 
     return jsonify(events)
+
+@app.route('/api/alerts/list')
+def display_list_events():
+    alerts = Alert.query.all()
+    events = []
+
+    for alert in alerts:
+        events.append({
+            'username': alert.user.username,
+            'timestamp': alert.timestamp.isoformat(),
+            'address': alert.address,
+            'description': alert.description,
+            'alert_type': alert.alert_type
+        })
+
+    return jsonify(events)
+
+@app.route('/api/alerts/details/<int:alert_id>')
+def display_alert_details(alert_id):
+    alert = Alert.query.get_or_404(alert_id)
+    event = {
+        'username': alert.user.username,
+        'timestamp': alert.timestamp.isoformat(),
+        'address': alert.address,
+        'description': alert.description,
+        'alert_type': alert.alert_type,
+        'photo': alert.photo
+    }
+    return jsonify(event)
 
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=5000, debug=True)
