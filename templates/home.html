@@ -113,10 +113,11 @@
                 return R * c;
             }
 
-            events = events.filter(event => {
-                const distance = haversineDistance(userLat, userLng, event.lat, event.lng);
-                return distance <= 10; // Only events within 10 miles
-            });
+            // Fetch the current user's county name from backend-rendered context
+            const userCounty = "{{ user.county_name }}";
+
+            // Filter events by county
+            events = events.filter(event => event.county_name === userCounty);
 
             // Sort events by timestamp descending (most recent first)
             events.sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));

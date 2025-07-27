@@ -265,18 +265,24 @@ def init_db():
 
 @app.route('/api/events')
 def get_alerts_for_map():
-    alerts = Alert.query.all()
+    user_id = session.get('user_id')
+    if not user_id:
+        return jsonify([])
+
+    user = User.query.get(user_id)
+    if not user or not user.county_name:
+        return jsonify([])
+
+    alerts = (
+        db.session.query(Alert)
+        .join(ZipCode, Alert.zip_code == ZipCode.zip_code)
+        .filter(ZipCode.county_name == user.county_name)
+        .order_by(Alert.timestamp.desc())
+        .all()
+    )
+
     events = []
-
     for alert in alerts:
-        zip_code = extract_zip_from_address(alert.address)
-        county_name = None
-
-        if zip_code:
-            zip_record = ZipCode.query.filter_by(zip_code=zip_code).first()
-            if zip_record:
-                county_name = zip_record.county_name
-
         events.append({
             'id': alert.id,
             'lat': alert.lat,
@@ -285,8 +291,8 @@ def get_alerts_for_map():
             'timestamp': alert.timestamp.isoformat(),
             'description': alert.description,
             'address': alert.address,
-            'zip_code': zip_code,
-            'county_name': county_name,
+            'zip_code': alert.zip_code,
+            'county_name': user.county_name,
             'false_votes': alert.false_votes
         })
 
