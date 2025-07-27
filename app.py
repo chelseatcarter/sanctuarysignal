@@ -142,49 +142,125 @@ def logout():
     session.clear()
     return redirect('/login')
 
+
+
+def extract_zip_from_address(address):
+    """Extract 5-digit ZIP code from a U.S. address string"""
+    match = re.search(r'\b\d{5}\b', address)
+    return match.group() if match else None
+def generate_alert_message(alert_type, address):
+    alert_type = alert_type.lower()
+    templates = {
+        'suspicious': f"⚠️ Suspicious activity reported near {address}. Stay alert and report anything unusual. \n\n\n⚠️ Actividad sospechosa en tu área. Mantente alerta.",
+        'emergency': f"🚨 Emergency reported at {address}. If you or others are in danger, call 911 immediately. Please avoid the area and seek safety.",
+        'ice': f"🚓 ICE presence reported at {address}. Remain calm. Do not open the door unless a warrant is shown. Know your rights: https://nilc.org/kyr. \n\n\n🚨 Actividad de ICE reportada cerca. Conozca sus derechos y manténgase seguro.",
+        'disturbance': f"🔊 Disturbance reported at {address}. Authorities may be responding. \n\n\n🔊 Se reportó una alteración cerca. Mantente alerta.",
+        'other': f"📢 An incident has been reported at {address}. Check details if you’re nearby. If this alert concerns you, check the community board for updates."
+    }
+    return templates.get(alert_type, f"🚨 Incident reported at {address}.")
+
 @app.route('/report', methods=['GET', 'POST'])
 def report():
     if request.method == 'POST':
-        data = request.get_json()
-        app.logger.info(f"Report data: {data}")
-        return jsonify({"message": "Report received"})
+        alert_type = request.form.get('type')
+        address = request.form.get('address')
+        lat = request.form.get('latitude')
+        lng = request.form.get('longitude')
+        photo_file = request.files.get('photo')
+        user_id = session.get('user_id')
+
+        if not all([alert_type, address, lat, lng, user_id]):
+            return jsonify({"error": "Missing required fields"}), 400
+
+        # Extract ZIP and lookup county
+        zip_code = extract_zip_from_address(address)
+        if not zip_code:
+            return jsonify({"error": "Could not extract ZIP code"}), 400
+
+        zip_record = ZipCode.query.filter_by(zip_code=zip_code).first()
+        if not zip_record:
+            return jsonify({"error": "Invalid ZIP code"}), 400
+
+        body_message = generate_alert_message(alert_type, address)
+        county_name = zip_record.county_name
+
+        # Save the alert
+        alert = Alert(
+            alert_type=alert_type,
+            address=address,
+            lat=float(lat),
+            lng=float(lng),
+            description=f"{alert_type.title()} reported at {address}.",
+            user_id=user_id,
+            photo=photo_file.filename if photo_file else None
+        )
+        db.session.add(alert)
+        db.session.commit()
+
+        # Twilio messaging setup
+        from twilio.rest import Client
+        account_sid = 'ACc8131e14d6d03ece7885f9a9778411e6'
+        auth_token = 'a68dffdf8f3c99e7960fbbea06fdafa9'
+        messaging_service_sid = 'MG4c367cc6b146a8b8215fb3a389f4108d'
+
+        client = Client(account_sid, auth_token)
+        
+
+        # Find all verified & not banned users in the same county
+        users = User.query.filter_by(county_name=county_name, verified=True, banned=False).all()
+        for u in users:
+            if is_valid_e164(u.phone_number):
+                try:
+                    message = client.messages.create(
+                        messaging_service_sid=messaging_service_sid,
+                        body=body_message,
+                        to=u.phone_number
+                    )
+                    print(f"Sent to {u.phone_number} | SID: {message.sid}")
+                except Exception as e:
+                    print(f"Failed to send to {u.phone_number}: {e}")
+
+        return redirect('/')
 
     return render_template('report.html')
 
-@app.route('/send_sms', methods=['POST'])
-def send_sms():
-    data = request.get_json()
-    from_number = data.get("from_number")  # Supplied Twilio number
-    county_name = data.get("county_name")  # County name for the alert
-    message_body = data.get("message")
 
-    if not all([from_number, county_name, message_body]):
-        return jsonify({"error": "Missing from_number, county_name, or message"}), 400
 
-    if not is_valid_e164(from_number):
-        return jsonify({"error": "Invalid phone number format (must be E.164)"}), 400
+
+# @app.route('/send_sms', methods=['POST'])
+# def send_sms():
+#     data = request.get_json()
+#     from_number = data.get("from_number")  # Supplied Twilio number
+#     county_name = data.get("county_name")  # County name for the alert
+#     message_body = data.get("message")
+
+#     if not all([from_number, county_name, message_body]):
+#         return jsonify({"error": "Missing from_number, county_name, or message"}), 400
+
+#     if not is_valid_e164(from_number):
+#         return jsonify({"error": "Invalid phone number format (must be E.164)"}), 400
     
-    # Get phone numbers of users in the county
-    users = User.query.filter_by(county_name=county_name, verified=True, banned=False).all()
-    phone_numbers = [u.phone_number for u in users if is_valid_e164(u.phone_number)]
+#     # Get phone numbers of users in the county
+#     users = User.query.filter_by(county_name=county_name, verified=True, banned=False).all()
+#     phone_numbers = [u.phone_number for u in users if is_valid_e164(u.phone_number)]
 
-    if not phone_numbers:
-        return jsonify({"error": "No valid phone numbers found for this county"}), 404
+#     if not phone_numbers:
+#         return jsonify({"error": "No valid phone numbers found for this county"}), 404
 
-    # Send SMS to all phone numbers
-    results = []
-    for to_number in phone_numbers:
-        try:
-            message = twilio_client.messages.create(
-                body=message_body,
-                from_=from_number,
-                to=to_number
-            )
-            results.append({"to": to_number, "status": "sent", "sid": message.sid})
-        except Exception as e:
-            results.append({"to": to_number, "status": "failed", "error": str(e)})
+#     # Send SMS to all phone numbers
+#     results = []
+#     for to_number in phone_numbers:
+#         try:
+#             message = twilio_client.messages.create(
+#                 body=message_body,
+#                 from_=from_number,
+#                 to=to_number
+#             )
+#             results.append({"to": to_number, "status": "sent", "sid": message.sid})
+#         except Exception as e:
+#             results.append({"to": to_number, "status": "failed", "error": str(e)})
 
-    return jsonify({"results": results}), 200
+#     return jsonify({"results": results}), 200
 
 @app.route('/init-db')
 def init_db():
@@ -192,19 +268,38 @@ def init_db():
         db.create_all()
     return {'message': 'Database initialized successfully'}
 
+def extract_zip_from_address(address):
+    """Extract 5-digit ZIP code from a U.S. address string"""
+    match = re.search(r'\b\d{5}\b', address)
+    return match.group() if match else None
+
 @app.route('/api/events')
 def get_alerts_for_map():
     alerts = Alert.query.all()
     events = []
 
     for alert in alerts:
+        zip_code = extract_zip_from_address(alert.address)
+        county_name = None
+
+        if zip_code:
+            zip_record = ZipCode.query.filter_by(zip_code=zip_code).first()
+            if zip_record:
+                county_name = zip_record.county_name
+
         events.append({
             'lat': alert.lat,
             'lng': alert.lng,
-            'title': alert.alert_type
+            'title': alert.alert_type,
+            'description': alert.description,
+            'address': alert.address,
+            'zip_code': zip_code,
+            'county_name': county_name,
+            'false_votes': alert.false_votes
         })
 
     return jsonify(events)
+
 
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=5000, debug=True)
