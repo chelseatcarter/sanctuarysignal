@@ -99,20 +99,6 @@
             const response = await fetch('/api/events');
             let events = await response.json();
 
-            // Filter to only nearby events (within 10 miles)
-            function haversineDistance(lat1, lng1, lat2, lng2) {
-                const R = 3959; // Earth radius in miles
-                const dLat = (lat2 - lat1) * Math.PI / 180;
-                const dLng = (lng2 - lng1) * Math.PI / 180;
-                const a =
-                    Math.sin(dLat / 2) ** 2 +
-                    Math.cos(lat1 * Math.PI / 180) *
-                    Math.cos(lat2 * Math.PI / 180) *
-                    Math.sin(dLng / 2) ** 2;
-                const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-                return R * c;
-            }
-
             // Fetch the current user's county name from backend-rendered context
             const userCounty = "{{ user.county_name }}";
 
@@ -134,7 +120,7 @@
                 const marker = new google.maps.Marker({
                     position: { lat: event.lat, lng: event.lng },
                     map: map,
-                    title: event.title || 'Reported Incident'
+                    title: `${event.alert_type} – ${event.username}`
                 });
 
                 marker.addListener("click", () => {
@@ -149,7 +135,9 @@
                         const li = document.createElement('li');
                         li.innerHTML = `
                         <a href="/alerts/${event.id}" class="text-decoration-none text-dark d-block">
-                            <strong>${event.title || "Incident"}</strong><br>
+                            <strong>${event.alert_type || "Incident"}</strong><br>
+                            <em>Reported by ${event.username}</em><br>
+                            📍 ${event.address}<br>
                             ${event.description || ""}<br>
                             <small class="text-muted">${eventTime.toLocaleString()}</small>
                         </a>
