@@ -47,6 +47,7 @@ class Alert(db.Model):
     description = db.Column(db.Text, nullable=False)
     lat = db.Column(db.Float)
     lng = db.Column(db.Float)
+    zip_code = db.Column(db.String(10), primary_key=True)
     false_votes = db.Column(db.Integer, default=0)
 
     user = db.relationship('User', backref='alerts')
