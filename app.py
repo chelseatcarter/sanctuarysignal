@@ -215,9 +215,9 @@ def report():
 
         # Twilio messaging setup
         from twilio.rest import Client
-        account_sid = ''
-        auth_token = ''
-        messaging_service_sid = ''
+        account_sid = os.getenv("TWILIO_ACCOUNT_SID")
+        auth_token = os.getenv("TWILIO_AUTH_TOKEN")
+        messaging_service_sid = os.getenv("TWILIO_VERIFY_SERVICE_SID")
 
         client = Client(account_sid, auth_token)
         
