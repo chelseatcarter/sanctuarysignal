@@ -223,8 +223,13 @@ def report():
         photo_url = None
         if photo_file and allowed_file(photo_file.filename):
             filename = secure_filename(photo_file.filename)
-            s3.upload_fileobj(photo_file, S3_BUCKET, filename)
-            photo_url = f"https://{S3_BUCKET}.s3.amazonaws.com/{filename}"
+            s3.upload_fileobj(
+                photo_file,
+                S3_BUCKET,
+                filename,
+                ExtraArgs={'ACL': 'public-read'}
+            )
+            photo_url = f"https://{S3_BUCKET}.s3.us-east-2.amazonaws.com/{filename}"
 
         # Save the alert
         alert = Alert(
