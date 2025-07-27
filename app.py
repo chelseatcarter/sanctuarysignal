@@ -282,6 +282,7 @@ def get_alerts_for_map():
             'lat': alert.lat,
             'lng': alert.lng,
             'title': alert.alert_type,
+            'timestamp': alert.timestamp.isoformat(),
             'description': alert.description,
             'address': alert.address,
             'zip_code': zip_code,
