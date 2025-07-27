@@ -137,7 +137,7 @@
                 });
 
                 marker.addListener("click", () => {
-                    window.location.href = `/alerts/details/${event.id}`;
+                    window.location.href = `/alerts/${event.id}`;
                 });
 
                 if (event.timestamp) {
@@ -147,7 +147,7 @@
                     if (diffHours <= 24) {
                         const li = document.createElement('li');
                         li.innerHTML = `
-                        <a href="/alerts/details/${event.id}" class="text-decoration-none text-dark d-block">
+                        <a href="/alerts/${event.id}" class="text-decoration-none text-dark d-block">
                             <strong>${event.title || "Incident"}</strong><br>
                             ${event.description || ""}<br>
                             <small class="text-muted">${eventTime.toLocaleString()}</small>
