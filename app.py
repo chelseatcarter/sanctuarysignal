@@ -37,8 +37,8 @@ def home():
     if user and user.zip_code:
         zip_record = ZipCode.query.filter_by(zip_code=user.zip_code).first()
         if zip_record:
-            user_lat = zip_record.latitude
-            user_lng = zip_record.longitude
+            user_lat = zip_record.lat
+            user_lng = zip_record.lng
 
     return render_template('home.html', user=user, user_lat=user_lat, user_lng=user_lng)
 
