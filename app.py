@@ -7,6 +7,13 @@ import json
 import os
 from dotenv import load_dotenv
 from twilio.rest import Client
+from werkzeug.utils import secure_filename
+from flask import send_from_directory
+import requests
+import boto3
+from sqlalchemy.orm import joinedload
+
+load_dotenv()
 
 app = Flask(__name__)
 app.secret_key = 'super-secret-key'
@@ -15,18 +22,39 @@ app.secret_key = 'super-secret-key'
 app.config['SQLALCHEMY_DATABASE_URI'] = 'postgresql://admin:s23RnnVoH5OQL5rbsxqC8FI3MckaOsqZ@dpg-d1vcvher433s73fiogn0-a.ohio-postgres.render.com/sanctuarysignal'
 db.init_app(app)
 
+TWILIO_ACCOUNT_SID = os.getenv("TWILIO_ACCOUNT_SID")
+TWILIO_AUTH_TOKEN = os.getenv("TWILIO_AUTH_TOKEN")
+VERIFY_SID = os.getenv("TWILIO_VERIFY_SERVICE_SID")
+MESSAGING_SERVICE_SID = os.getenv("TWILIO_MESSAGING_SERVICE_SID")
+GOOGLE_API_KEY = os.getenv("GOOGLE_API_KEY")
+
+s3 = boto3.client('s3',
+    aws_access_key_id=os.getenv("AWS_ACCESS_KEY_ID"),
+    aws_secret_access_key=os.getenv("AWS_SECRET_ACCESS_KEY")
+)
+S3_BUCKET = os.getenv("S3_BUCKET_NAME")
+
+twilio_client = Client(TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN)
+print(f"✅ TWILIO_ACCOUNT_SID: {TWILIO_ACCOUNT_SID}")
+print(f"✅ TWILIO_AUTH_TOKEN starts with: {TWILIO_AUTH_TOKEN[:4]}... (length: {len(TWILIO_AUTH_TOKEN)})")
+print(f"✅ VERIFY_SID: {VERIFY_SID}")
+print(f"✅ MESSAGING_SERVICE_SID: {MESSAGING_SERVICE_SID}")
+
 @app.route('/')
 def home():
     user_id = session.get('user_id')
     user = User.query.get(user_id) if user_id else None
-    return render_template('home.html', user=user)
 
+    user_lat = None
+    user_lng = None
+    # If user is logged in, get their latitude and longitude from the zip code and display it on the map
+    if user and user.zip_code:
+        zip_record = ZipCode.query.filter_by(zip_code=user.zip_code).first()
+        if zip_record:
+            user_lat = zip_record.lat
+            user_lng = zip_record.lng
 
-TWILIO_ACCOUNT_SID = os.getenv("TWILIO_ACCOUNT_SID")
-TWILIO_AUTH_TOKEN = os.getenv("TWILIO_AUTH_TOKEN")
-VERIFY_SID = os.getenv("TWILIO_VERIFY_SERVICE_SID")
-twilio_client = Client(TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN)
-
+    return render_template('home.html', user=user, user_lat=user_lat, user_lng=user_lng, google_api_key=GOOGLE_API_KEY)
 
 def is_valid_e164(number):
     return re.match(r'^\+[1-9]\d{1,14}$', number) is not None
@@ -64,7 +92,11 @@ def signup():
         db.session.add(user)
         db.session.commit()
 
-        verification = twilio_client.verify.services(VERIFY_SID).verifications.create(to=user.phone_number, channel='sms')
+        try:
+            twilio_client.verify.services(VERIFY_SID).verifications.create(to=user.phone_number, channel='sms')
+        except Exception as e:
+            app.logger.error(f"❌ Twilio error: {e}")
+            return jsonify({"error": "Failed to send verification code"}), 500
 
         return jsonify({"message": "Signup successful"}), 201
 
@@ -94,18 +126,6 @@ def verify():
 
     return jsonify({"message": "Phone number verified and user logged in!"}), 200
 
-@app.route('/debug/users')
-def list_users():
-    users = User.query.all()
-    return jsonify([
-        {
-            "id": user.id,
-            "username": user.username,
-            "first_name": user.first_name,
-            "phone": user.phone_number
-        } for user in users
-    ])
-
 @app.route('/login', methods=['GET', 'POST'])
 def login():
     if request.method == 'POST':
@@ -116,7 +136,7 @@ def login():
         if user and user.check_password(data['password']):
 
             if not user.verified:
-                verification = twilio_client.verify.services(VERIFY_SID).verifications.create(to=user.phone_number, channel='sms')
+                twilio_client.verify.services(VERIFY_SID).verifications.create(to=user.phone_number, channel='sms')
                 return jsonify({
                     "error": "Account not verified",
                     "phone_number": user.phone_number  # now the frontend can grab it
@@ -142,12 +162,11 @@ def logout():
     session.clear()
     return redirect('/login')
 
-
-
 def extract_zip_from_address(address):
     """Extract 5-digit ZIP code from a U.S. address string"""
     match = re.search(r'\b\d{5}\b', address)
     return match.group() if match else None
+
 def generate_alert_message(alert_type, address):
     alert_type = alert_type.lower()
     templates = {
@@ -159,21 +178,30 @@ def generate_alert_message(alert_type, address):
     }
     return templates.get(alert_type, f"🚨 Incident reported at {address}.")
 
-# from werkzeug.utils import secure_filename
 # from datetime import datetime
 # from models import Alert
 
-# # Set upload folder and allowed extensions
-# UPLOAD_FOLDER = 'uploads'
-# ALLOWED_EXTENSIONS = {'png', 'jpg', 'jpeg', 'gif'}
-# app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
-
-# # Create uploads folder if it doesn't exist
-# if not os.path.exists(UPLOAD_FOLDER):
-#     os.makedirs(UPLOAD_FOLDER)
+ALLOWED_EXTENSIONS = {'png', 'jpg', 'jpeg', 'gif'}
 
 def allowed_file(filename):
     return '.' in filename and filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
+
+def get_zip_from_coords(lat, lng):
+    api_key = os.getenv("GOOGLE_API_KEY")
+    if not api_key:
+        raise ValueError("Missing Google API key")
+
+    response = requests.get("https://maps.googleapis.com/maps/api/geocode/json", params={
+        'latlng': f'{lat},{lng}',
+        'key': api_key
+    })
+
+    results = response.json().get("results", [])
+    for result in results:
+        for component in result.get("address_components", []):
+            if "postal_code" in component.get("types", []):
+                return component.get("short_name")
+    return None
 
 @app.route('/report', methods=['GET', 'POST'])
 def report():
@@ -183,15 +211,16 @@ def report():
         lat = request.form.get('latitude')
         lng = request.form.get('longitude')
         photo_file = request.files.get('photo')
+        description = request.form.get('description')
         user_id = session.get('user_id')
 
         if not all([alert_type, address, lat, lng, user_id]):
             return jsonify({"error": "Missing required fields"}), 400
 
-        # Extract ZIP and lookup county
-        zip_code = extract_zip_from_address(address)
+        # Reverse geocode ZIP from lat/lng
+        zip_code = get_zip_from_coords(lat, lng)
         if not zip_code:
-            return jsonify({"error": "Could not extract ZIP code"}), 400
+            return jsonify({"error": "Could not determine ZIP code from coordinates"}), 400
 
         zip_record = ZipCode.query.filter_by(zip_code=zip_code).first()
         if not zip_record:
@@ -200,15 +229,22 @@ def report():
         body_message = generate_alert_message(alert_type, address)
         county_name = zip_record.county_name
 
+        photo_url = None
+        if photo_file and allowed_file(photo_file.filename):
+            filename = secure_filename(photo_file.filename)
+            s3.upload_fileobj(photo_file, S3_BUCKET, filename)
+            photo_url = f"https://{S3_BUCKET}.s3.us-east-2.amazonaws.com/{filename}"
+
         # Save the alert
         alert = Alert(
             alert_type=alert_type,
             address=address,
             lat=float(lat),
             lng=float(lng),
-            description=f"{alert_type.title()} reported at {address}.",
+            description=description,
             user_id=user_id,
-            photo=photo_file.filename if photo_file else None
+            photo=photo_url,
+            zip_code=zip_code
         )
         db.session.add(alert)
         db.session.commit()
@@ -227,8 +263,8 @@ def report():
         for u in users:
             if is_valid_e164(u.phone_number):
                 try:
-                    message = client.messages.create(
-                        messaging_service_sid=messaging_service_sid,
+                    message = twilio_client.messages.create(
+                        messaging_service_sid=MESSAGING_SERVICE_SID,
                         body=body_message,
                         to=u.phone_number
                     )
@@ -240,77 +276,42 @@ def report():
 
     return render_template('report.html')
 
-
-
-
-# @app.route('/send_sms', methods=['POST'])
-# def send_sms():
-#     data = request.get_json()
-#     from_number = data.get("from_number")  # Supplied Twilio number
-#     county_name = data.get("county_name")  # County name for the alert
-#     message_body = data.get("message")
-
-#     if not all([from_number, county_name, message_body]):
-#         return jsonify({"error": "Missing from_number, county_name, or message"}), 400
-
-#     if not is_valid_e164(from_number):
-#         return jsonify({"error": "Invalid phone number format (must be E.164)"}), 400
-    
-#     # Get phone numbers of users in the county
-#     users = User.query.filter_by(county_name=county_name, verified=True, banned=False).all()
-#     phone_numbers = [u.phone_number for u in users if is_valid_e164(u.phone_number)]
-
-#     if not phone_numbers:
-#         return jsonify({"error": "No valid phone numbers found for this county"}), 404
-
-#     # Send SMS to all phone numbers
-#     results = []
-#     for to_number in phone_numbers:
-#         try:
-#             message = twilio_client.messages.create(
-#                 body=message_body,
-#                 from_=from_number,
-#                 to=to_number
-#             )
-#             results.append({"to": to_number, "status": "sent", "sid": message.sid})
-#         except Exception as e:
-#             results.append({"to": to_number, "status": "failed", "error": str(e)})
-
-#     return jsonify({"results": results}), 200
-
 @app.route('/init-db')
 def init_db():
     with app.app_context():
         db.create_all()
     return {'message': 'Database initialized successfully'}
 
-def extract_zip_from_address(address):
-    """Extract 5-digit ZIP code from a U.S. address string"""
-    match = re.search(r'\b\d{5}\b', address)
-    return match.group() if match else None
-
 @app.route('/api/events')
 def get_alerts_for_map():
-    alerts = Alert.query.all()
+    user_id = session.get('user_id')
+    if not user_id:
+        return jsonify([])
+
+    user = User.query.get(user_id)
+    if not user or not user.county_name:
+        return jsonify([])
+
+    alerts = (
+        db.session.query(Alert)
+        .join(ZipCode, Alert.zip_code == ZipCode.zip_code)
+        .filter(ZipCode.county_name == user.county_name)
+        .order_by(Alert.timestamp.desc())
+        .all()
+    )
+
     events = []
-
     for alert in alerts:
-        zip_code = extract_zip_from_address(alert.address)
-        county_name = None
-
-        if zip_code:
-            zip_record = ZipCode.query.filter_by(zip_code=zip_code).first()
-            if zip_record:
-                county_name = zip_record.county_name
-
         events.append({
+            'id': alert.id,
             'lat': alert.lat,
             'lng': alert.lng,
             'title': alert.alert_type,
+            'timestamp': alert.timestamp.isoformat(),
             'description': alert.description,
             'address': alert.address,
-            'zip_code': zip_code,
-            'county_name': county_name,
+            'zip_code': alert.zip_code,
+            'county_name': user.county_name,
             'false_votes': alert.false_votes
         })
 
@@ -318,12 +319,12 @@ def get_alerts_for_map():
 
 @app.route('/api/alerts/list')
 def display_list_events():
-    alerts = Alert.query.all()
+    alerts = Alert.query.order_by(Alert.timestamp.desc()).all()
     events = []
 
     for alert in alerts:
         events.append({
-            'username': alert.user.username,
+            'id': alert.id,
             'timestamp': alert.timestamp.isoformat(),
             'address': alert.address,
             'description': alert.description,
