@@ -207,6 +207,7 @@ def report():
         lat = request.form.get('latitude')
         lng = request.form.get('longitude')
         photo_file = request.files.get('photo')
+        description = request.form.get('description')
         user_id = session.get('user_id')
 
         if not all([alert_type, address, lat, lng, user_id]):
@@ -235,7 +236,7 @@ def report():
             address=address,
             lat=float(lat),
             lng=float(lng),
-            description=f"{alert_type.title()} reported at {address}.",
+            description=description,
             user_id=user_id,
             photo=filename
         )
