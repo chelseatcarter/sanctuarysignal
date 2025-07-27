@@ -11,6 +11,7 @@ from werkzeug.utils import secure_filename
 from flask import send_from_directory
 import requests
 import boto3
+from sqlalchemy.orm import joinedload
 
 load_dotenv()
 
@@ -301,7 +302,7 @@ def get_alerts_for_map():
 
 @app.route('/api/alerts/list')
 def display_list_events():
-    alerts = Alert.query.all()
+    alerts = Alert.query.options(joinedload(Alert.user)).all()  # 👈 Force SQLAlchemy to join the user table
     events = []
 
     for alert in alerts:
