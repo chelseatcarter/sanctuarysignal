@@ -144,14 +144,64 @@ def logout():
 
 @app.route('/report', methods=['GET', 'POST'])
 def report():
+    import os
+from werkzeug.utils import secure_filename
+from datetime import datetime
+from models import Alert
+
+# Set upload folder and allowed extensions
+UPLOAD_FOLDER = 'uploads'
+ALLOWED_EXTENSIONS = {'png', 'jpg', 'jpeg', 'gif'}
+app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
+
+# Create uploads folder if it doesn't exist
+if not os.path.exists(UPLOAD_FOLDER):
+    os.makedirs(UPLOAD_FOLDER)
+
+def allowed_file(filename):
+    return '.' in filename and filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
+
+@app.route('/report', methods=['GET', 'POST'])
+def report():
     if request.method == 'POST':
-        data = request.get_json()
-        app.logger.info(f"Report data: {data}")
-        return jsonify({"message": "Report received"})
+        if 'photo' not in request.files:
+            return jsonify({"error": "Photo is required"}), 400
+
+        file = request.files['photo']
+        if file.filename == '' or not allowed_file(file.filename):
+            return jsonify({"error": "Invalid or missing image file"}), 400
+
+        filename = secure_filename(f"{datetime.utcnow().timestamp()}_{file.filename}")
+        filepath = os.path.join(app.config['UPLOAD_FOLDER'], filename)
+        file.save(filepath)
+
+        user_id = request.form.get('user_id')
+        address = request.form.get('address')
+        alert_type = request.form.get('alert_type')
+        lat = request.form.get('lat')
+        lng = request.form.get('lng')
+
+        if not user_id or not alert_type:
+            return jsonify({"error": "Missing required fields"}), 400
+            
+        alert = Alert(
+            user_id=user_id,
+            photo=filename,
+            address=address,
+            alert_type=alert_type,
+            lat=lat,
+            lng=lng,
+            created_at=datetime.utcnow()
+        )
+
+        db.session.add(alert)
+        db.session.commit()
+
+        app.logger.info(f"New alert submitted: {alert}")
+        return jsonify({"message": "Report received"}), 201
 
     return render_template('report.html')
 
-@app.route('/send_sms', methods=['POST'])
 def send_sms():
     data = request.get_json()
     from_number = data.get("from_number")  # Supplied Twilio number
