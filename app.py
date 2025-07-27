@@ -151,29 +151,26 @@ def extract_zip_from_address(address):
 def generate_alert_message(alert_type, address):
     alert_type = alert_type.lower()
     templates = {
-        'suspicious': f"⚠️ Suspicious activity reported near {address}. Stay alert and report anything unusual. \n\n\n⚠️ Actividad sospechosa en tu área. Mantente alerta.",
-        'emergency': f"🚨 Emergency reported at {address}. If you or others are in danger, call 911 immediately. Please avoid the area and seek safety.",
-        'ice': f"🚓 ICE presence reported at {address}. Remain calm. Do not open the door unless a warrant is shown. Know your rights: https://nilc.org/kyr. \n\n\n🚨 Actividad de ICE reportada cerca. Conozca sus derechos y manténgase seguro.",
-        'disturbance': f"🔊 Disturbance reported at {address}. Authorities may be responding. \n\n\n🔊 Se reportó una alteración cerca. Mantente alerta.",
-        'other': f"📢 An incident has been reported at {address}. Check details if you’re nearby. If this alert concerns you, check the community board for updates."
+        'suspicious': f"⚠️ Suspicious activity reported near {address}. \n\n\n⚠️ Actividad sospechosa en tu área. Mantente alerta.",
+        'emergency': f"🚨 Emergency reported at {address}. If you or others are in danger, call 911 immediately. ",
+        'ice': f"🚓 ICE presence reported at {address}. \n\n\n🚨 Actividad de ICE reportada cerca. \n\nKnow your rights: https://nilc.org/kyr.",
+        'disturbance': f"🔊 Disturbance reported at {address}. Authorities may be responding.",
+        'other': f"📢 An incident has been reported at {address}. If this alert concerns you, check the community board for updates."
     }
     return templates.get(alert_type, f"🚨 Incident reported at {address}.")
 
-@app.route('/report', methods=['GET', 'POST'])
-def report():
-    import os
-from werkzeug.utils import secure_filename
-from datetime import datetime
-from models import Alert
+# from werkzeug.utils import secure_filename
+# from datetime import datetime
+# from models import Alert
 
-# Set upload folder and allowed extensions
-UPLOAD_FOLDER = 'uploads'
-ALLOWED_EXTENSIONS = {'png', 'jpg', 'jpeg', 'gif'}
-app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
+# # Set upload folder and allowed extensions
+# UPLOAD_FOLDER = 'uploads'
+# ALLOWED_EXTENSIONS = {'png', 'jpg', 'jpeg', 'gif'}
+# app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
 
-# Create uploads folder if it doesn't exist
-if not os.path.exists(UPLOAD_FOLDER):
-    os.makedirs(UPLOAD_FOLDER)
+# # Create uploads folder if it doesn't exist
+# if not os.path.exists(UPLOAD_FOLDER):
+#     os.makedirs(UPLOAD_FOLDER)
 
 def allowed_file(filename):
     return '.' in filename and filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
@@ -218,9 +215,9 @@ def report():
 
         # Twilio messaging setup
         from twilio.rest import Client
-        account_sid = 'ACc8131e14d6d03ece7885f9a9778411e6'
-        auth_token = 'a68dffdf8f3c99e7960fbbea06fdafa9'
-        messaging_service_sid = 'MG4c367cc6b146a8b8215fb3a389f4108d'
+        account_sid = ''
+        auth_token = ''
+        messaging_service_sid = ''
 
         client = Client(account_sid, auth_token)
         
