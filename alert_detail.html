@@ -42,7 +42,7 @@
       <h2 class="text-center mb-4">Alert Details</h2>
 
       {% if alert.photo %}
-      <img src="{{ url_for('uploaded_file', filename=alert.photo) }}" alt="Alert Photo" class="alert-photo">
+      <img src="{{ alert.photo }}" class="img-fluid" alt="Incident photo" />
       {% endif %}
 
       <p><strong>Reported By:</strong> {{ alert.user.username }}</p>
@@ -61,4 +61,5 @@
     </div>
   </div>
 </body>
+
 </html>

@@ -10,6 +10,7 @@ from twilio.rest import Client
 from werkzeug.utils import secure_filename
 from flask import send_from_directory
 import requests
+import boto3
 
 load_dotenv()
 
@@ -25,6 +26,12 @@ TWILIO_AUTH_TOKEN = os.getenv("TWILIO_AUTH_TOKEN")
 VERIFY_SID = os.getenv("TWILIO_VERIFY_SERVICE_SID")
 MESSAGING_SERVICE_SID = os.getenv("TWILIO_MESSAGING_SERVICE_SID")
 GOOGLE_API_KEY = os.getenv("GOOGLE_API_KEY")
+
+s3 = boto3.client('s3',
+    aws_access_key_id=os.getenv("AWS_ACCESS_KEY_ID"),
+    aws_secret_access_key=os.getenv("AWS_SECRET_ACCESS_KEY")
+)
+S3_BUCKET = os.getenv("S3_BUCKET_NAME")
 
 twilio_client = Client(TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN)
 
@@ -165,22 +172,10 @@ def generate_alert_message(alert_type, address):
 # from datetime import datetime
 # from models import Alert
 
-# # Set upload folder and allowed extensions
-UPLOAD_FOLDER = 'uploads'
 ALLOWED_EXTENSIONS = {'png', 'jpg', 'jpeg', 'gif'}
-app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
-
-# Create uploads folder if it doesn't exist
-if not os.path.exists(UPLOAD_FOLDER):
-    os.makedirs(UPLOAD_FOLDER)
 
 def allowed_file(filename):
     return '.' in filename and filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
-
-@app.route('/uploads/<filename>')
-def uploaded_file(filename):
-    return send_from_directory(app.config['UPLOAD_FOLDER'], filename)
-
 
 def get_zip_from_coords(lat, lng):
     api_key = os.getenv("GOOGLE_API_KEY")
@@ -225,10 +220,11 @@ def report():
         body_message = generate_alert_message(alert_type, address)
         county_name = zip_record.county_name
 
-        filename = None
+        photo_url = None
         if photo_file and allowed_file(photo_file.filename):
             filename = secure_filename(photo_file.filename)
-            photo_file.save(os.path.join(app.config['UPLOAD_FOLDER'], filename))
+            s3.upload_fileobj(photo_file, S3_BUCKET, filename)
+            photo_url = f"https://{S3_BUCKET}.s3.amazonaws.com/{filename}"
 
         # Save the alert
         alert = Alert(
@@ -238,7 +234,7 @@ def report():
             lng=float(lng),
             description=description,
             user_id=user_id,
-            photo=filename
+            photo=photo_url
         )
         db.session.add(alert)
         db.session.commit()
