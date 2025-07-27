@@ -302,13 +302,12 @@ def get_alerts_for_map():
 
 @app.route('/api/alerts/list')
 def display_list_events():
-    alerts = Alert.query.options(joinedload(Alert.user)).all()  # 👈 Force SQLAlchemy to join the user table
+    alerts = Alert.query.order_by(Alert.timestamp.desc()).all()
     events = []
 
     for alert in alerts:
         events.append({
             'id': alert.id,
-            'username': alert.user.username,
             'timestamp': alert.timestamp.isoformat(),
             'address': alert.address,
             'description': alert.description,
