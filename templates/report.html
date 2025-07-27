@@ -1,5 +1,6 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
   <meta charset="UTF-8">
   <title>Report an Incident – Sanctuary Signal</title>
@@ -9,88 +10,99 @@
       background-color: #F2F4F7;
       font-family: 'Segoe UI', sans-serif;
     }
+
     .form-container {
       max-width: 600px;
       margin: 4rem auto;
       background-color: white;
       padding: 2rem;
       border-radius: 8px;
-      box-shadow: 0 4px 10px rgba(0,0,0,0.1);
+      box-shadow: 0 4px 10px rgba(0, 0, 0, 0.1);
     }
+
     .btn-signal {
       background-color: #3C2174;
       color: white;
       font-weight: 600;
     }
+
     .btn-signal:hover {
       background-color: #2E165D;
     }
   </style>
 </head>
+
 <body>
 
-<div class="container">
-  <div class="form-container">
-    <h2 class="mb-4 text-center">Report an Incident</h2>
-    <form method="POST" action="/report" enctype="multipart/form-data">
-      <div class="mb-3">
-        <label for="type" class="form-label">Type of Alert *</label>
-        <select class="form-select" name="type" required>
-          <option value="">Select one</option>
-          <option value="suspicious">Suspicious Activity</option>
-          <option value="emergency">Emergency</option>
-          <option value="ice">ICE</option>
-          <option value="disturbance">Disturbance</option>
-          <option value="other">Other</option>
-        </select>
-      </div>
+  <div class="container">
+    <div class="form-container">
+      <h2 class="mb-4 text-center">Report an Incident</h2>
+      <form method="POST" action="/report" enctype="multipart/form-data">
+        <div class="mb-3">
+          <label for="type" class="form-label">Type of Alert *</label>
+          <select class="form-select" name="type" required>
+            <option value="">Select one</option>
+            <option value="suspicious">Suspicious Activity</option>
+            <option value="emergency">Emergency</option>
+            <option value="ice">ICE</option>
+            <option value="disturbance">Disturbance</option>
+            <option value="other">Other</option>
+          </select>
+        </div>
 
-      <div class="mb-3">
-        <label for="incidentAddress" class="form-label">Address of Event *</label>
-        <input type="text" class="form-control" name="address" id="incidentAddress"
-               placeholder="Enter event location..." required>
-      </div>
+        <div class="mb-3">
+          <label for="incidentAddress" class="form-label">Address of Event *</label>
+          <input type="text" class="form-control" name="address" id="incidentAddress"
+            placeholder="Enter event location..." required>
+        </div>
 
-      <!-- Optional hidden fields for coordinates -->
-      <input type="hidden" name="latitude" id="lat">
-      <input type="hidden" name="longitude" id="lng">
+        <!-- Optional hidden fields for coordinates -->
+        <input type="hidden" name="latitude" id="lat">
+        <input type="hidden" name="longitude" id="lng">
 
-      <div class="mb-3">
-        <label for="photo" class="form-label">Upload Photo (optional)</label>
-        <input type="file" class="form-control" name="photo" accept="image/*">
-      </div>
+        <div class="mb-3">
+          <label for="photo" class="form-label">Upload Photo (optional)</label>
+          <input type="file" class="form-control" name="photo" accept="image/*">
+        </div>
 
-      <button type="submit" class="btn btn-signal w-100">Submit Alert</button>
-    </form>
+        <div class="mb-3">
+          <label for="description" class="form-label">Description *</label>
+          <textarea class="form-control" name="description" id="description" rows="5"
+            placeholder="Provide details about the incident..." required></textarea>
+        </div>
+
+        <button type="submit" class="btn btn-signal w-100">Submit Alert</button>
+      </form>
+    </div>
   </div>
-</div>
 
-<!-- Autocomplete -->
-<script>
-  function initAutoComplete() {
-    const input = document.getElementById('incidentAddress');
-    const autocomplete = new google.maps.places.Autocomplete(input, {
-      types: ['geocode'],
-      componentRestrictions: { country: ['US'] },
-      fields: ['formatted_address', 'geometry']
-    });
+  <!-- Autocomplete -->
+  <script>
+    function initAutoComplete() {
+      const input = document.getElementById('incidentAddress');
+      const autocomplete = new google.maps.places.Autocomplete(input, {
+        types: ['geocode'],
+        componentRestrictions: { country: ['US'] },
+        fields: ['formatted_address', 'geometry']
+      });
 
-    autocomplete.addListener('place_changed', () => {
-      const place = autocomplete.getPlace();
-      if (!place.geometry) {
-        alert("No details available for the selected place.");
-        return;
-      }
-      input.value = place.formatted_address;
-      document.getElementById('lat').value = place.geometry.location.lat();
-      document.getElementById('lng').value = place.geometry.location.lng();
-    });
-  }
-</script>
+      autocomplete.addListener('place_changed', () => {
+        const place = autocomplete.getPlace();
+        if (!place.geometry) {
+          alert("No details available for the selected place.");
+          return;
+        }
+        input.value = place.formatted_address;
+        document.getElementById('lat').value = place.geometry.location.lat();
+        document.getElementById('lng').value = place.geometry.location.lng();
+      });
+    }
+  </script>
 
-<script async defer
-  src="https://maps.googleapis.com/maps/api/js?key=AIzaSyA7SIlZRGVZjnkLOtG4nZ88iFhupp8PQw0&libraries=places&callback=initAutoComplete">
-</script>
+  <script async defer
+    src="https://maps.googleapis.com/maps/api/js?key=AIzaSyA7SIlZRGVZjnkLOtG4nZ88iFhupp8PQw0&libraries=places&callback=initAutoComplete">
+    </script>
 
 </body>
+
 </html>

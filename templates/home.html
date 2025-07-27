@@ -96,6 +96,22 @@
                     map: map,
                     title: event.title || 'Reported Incident'
                 });
+
+                if (event.timestamp) {
+                    const eventTime = new Date(event.timestamp);
+                    const diffHours = (now - eventTime) / (1000 * 60 * 60);
+
+                    if (diffHours <= 24) {
+                        const li = document.createElement('li');
+                        li.className = "list-group-item";
+                        li.innerHTML = `
+                            <strong>${event.title || "Incident"}</strong><br>
+                            ${event.description || ""}<br>
+                            <small class="text-muted">${eventTime.toLocaleString()}</small>
+                        `;
+                        recentList.appendChild(li);
+                    }
+                }
             });
         }
     </script>
@@ -103,6 +119,12 @@
     <script async
         src="https://maps.googleapis.com/maps/api/js?key=AIzaSyA7SIlZRGVZjnkLOtG4nZ88iFhupp8PQw0&callback=initMap">
         </script>
+
+    <div class="mt-5">
+        <h3>Recent Reports (Last 24 Hours)</h3>
+        <ul id="recent-incidents" class="list-group mt-3"></ul>
+    </div>
+    
 </body>
 
 </html>

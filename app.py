@@ -161,6 +161,25 @@ def generate_alert_message(alert_type, address):
 
 @app.route('/report', methods=['GET', 'POST'])
 def report():
+    import os
+from werkzeug.utils import secure_filename
+from datetime import datetime
+from models import Alert
+
+# Set upload folder and allowed extensions
+UPLOAD_FOLDER = 'uploads'
+ALLOWED_EXTENSIONS = {'png', 'jpg', 'jpeg', 'gif'}
+app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
+
+# Create uploads folder if it doesn't exist
+if not os.path.exists(UPLOAD_FOLDER):
+    os.makedirs(UPLOAD_FOLDER)
+
+def allowed_file(filename):
+    return '.' in filename and filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
+
+@app.route('/report', methods=['GET', 'POST'])
+def report():
     if request.method == 'POST':
         alert_type = request.form.get('type')
         address = request.form.get('address')
@@ -300,6 +319,39 @@ def get_alerts_for_map():
 
     return jsonify(events)
 
+@app.route('/api/alerts/list')
+def display_list_events():
+    alerts = Alert.query.all()
+    events = []
+
+    for alert in alerts:
+        events.append({
+            'username': alert.user.username,
+            'timestamp': alert.timestamp.isoformat(),
+            'address': alert.address,
+            'description': alert.description,
+            'alert_type': alert.alert_type
+        })
+
+    return jsonify(events)
+
+@app.route('/api/alerts/details/<int:alert_id>')
+def display_alert_details(alert_id):
+    alert = Alert.query.get_or_404(alert_id)
+    event = {
+        'username': alert.user.username,
+        'timestamp': alert.timestamp.isoformat(),
+        'address': alert.address,
+        'description': alert.description,
+        'alert_type': alert.alert_type,
+        'photo': alert.photo
+    }
+    return jsonify(event)
+
+@app.route('/alerts/<int:alert_id>')
+def alert_detail_page(alert_id):
+    alert = Alert.query.get_or_404(alert_id)
+    return render_template('alert_detail.html', alert=alert)
 
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=5000, debug=True)
