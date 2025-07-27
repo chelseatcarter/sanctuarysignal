@@ -82,6 +82,11 @@
         </div>
         {% endif %}
         <div id="map"></div>
+
+        <div class="mt-5 p-4 bg-white rounded shadow-sm">
+            <h3 class="mb-3">Recent Reports (Last 24 Hours)</h3>
+            <ul id="recent-incidents" class="list-group"></ul>
+        </div>
     </div>
 
     <script>
@@ -92,7 +97,10 @@
     <script>
         async function initMap() {
             const response = await fetch('/api/events');
-            const events = await response.json();
+            let events = await response.json();
+
+            // Sort events by timestamp descending (most recent first)
+            events.sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
 
             const map = new google.maps.Map(document.getElementById('map'), {
                 zoom: 11,
@@ -134,14 +142,8 @@
         }
     </script>
 
-    <script async
-        src="https://maps.googleapis.com/maps/api/js?key={{ google_api_key }}&callback=initMap">
-        </script>
-
-    <div class="mt-5">
-        <h3>Recent Reports (Last 24 Hours)</h3>
-        <ul id="recent-incidents" class="list-group mt-3"></ul>
-    </div>
+    <script async src="https://maps.googleapis.com/maps/api/js?key={{ google_api_key }}&callback=initMap">
+    </script>
 
 </body>
 
