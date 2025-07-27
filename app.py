@@ -92,7 +92,11 @@ def signup():
         db.session.add(user)
         db.session.commit()
 
-        twilio_client.verify.services(VERIFY_SID).verifications.create(to=user.phone_number, channel='sms')
+        try:
+            twilio_client.verify.services(VERIFY_SID).verifications.create(to=user.phone_number, channel='sms')
+        except Exception as e:
+            app.logger.error(f"❌ Twilio error: {e}")
+            return jsonify({"error": "Failed to send verification code"}), 500
 
         return jsonify({"message": "Signup successful"}), 201
 
