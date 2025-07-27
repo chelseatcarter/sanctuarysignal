@@ -9,6 +9,7 @@ from dotenv import load_dotenv
 from twilio.rest import Client
 from werkzeug.utils import secure_filename
 from flask import send_from_directory
+import requests
 
 load_dotenv()
 
@@ -23,6 +24,7 @@ TWILIO_ACCOUNT_SID = os.getenv("TWILIO_ACCOUNT_SID")
 TWILIO_AUTH_TOKEN = os.getenv("TWILIO_AUTH_TOKEN")
 VERIFY_SID = os.getenv("TWILIO_VERIFY_SERVICE_SID")
 MESSAGING_SERVICE_SID = os.getenv("TWILIO_MESSAGING_SERVICE_SID")
+GOOGLE_API_KEY = os.getenv("GOOGLE_API_KEY")
 
 twilio_client = Client(TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN)
 
@@ -40,7 +42,7 @@ def home():
             user_lat = zip_record.lat
             user_lng = zip_record.lng
 
-    return render_template('home.html', user=user, user_lat=user_lat, user_lng=user_lng)
+    return render_template('home.html', user=user, user_lat=user_lat, user_lng=user_lng, google_api_key=GOOGLE_API_KEY)
 
 def is_valid_e164(number):
     return re.match(r'^\+[1-9]\d{1,14}$', number) is not None
@@ -179,6 +181,24 @@ def allowed_file(filename):
 def uploaded_file(filename):
     return send_from_directory(app.config['UPLOAD_FOLDER'], filename)
 
+
+def get_zip_from_coords(lat, lng):
+    api_key = os.getenv("GOOGLE_API_KEY")
+    if not api_key:
+        raise ValueError("Missing Google API key")
+
+    response = requests.get("https://maps.googleapis.com/maps/api/geocode/json", params={
+        'latlng': f'{lat},{lng}',
+        'key': api_key
+    })
+
+    results = response.json().get("results", [])
+    for result in results:
+        for component in result.get("address_components", []):
+            if "postal_code" in component.get("types", []):
+                return component.get("short_name")
+    return None
+
 @app.route('/report', methods=['GET', 'POST'])
 def report():
     if request.method == 'POST':
@@ -192,10 +212,10 @@ def report():
         if not all([alert_type, address, lat, lng, user_id]):
             return jsonify({"error": "Missing required fields"}), 400
 
-        # Extract ZIP and lookup county
-        zip_code = extract_zip_from_address(address)
+        # Reverse geocode ZIP from lat/lng
+        zip_code = get_zip_from_coords(lat, lng)
         if not zip_code:
-            return jsonify({"error": "Could not extract ZIP code"}), 400
+            return jsonify({"error": "Could not determine ZIP code from coordinates"}), 400
 
         zip_record = ZipCode.query.filter_by(zip_code=zip_code).first()
         if not zip_record:
