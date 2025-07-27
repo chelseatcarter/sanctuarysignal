@@ -35,6 +35,10 @@ s3 = boto3.client('s3',
 S3_BUCKET = os.getenv("S3_BUCKET_NAME")
 
 twilio_client = Client(TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN)
+print(f"✅ TWILIO_ACCOUNT_SID: {TWILIO_ACCOUNT_SID}")
+print(f"✅ TWILIO_AUTH_TOKEN starts with: {TWILIO_AUTH_TOKEN[:4]}... (length: {len(TWILIO_AUTH_TOKEN)})")
+print(f"✅ VERIFY_SID: {VERIFY_SID}")
+print(f"✅ MESSAGING_SERVICE_SID: {MESSAGING_SERVICE_SID}")
 
 @app.route('/')
 def home():
