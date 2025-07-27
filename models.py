@@ -32,6 +32,9 @@ class ZipCode(db.Model):
     id = db.Column(db.Integer, primary_key=True, autoincrement=True)
     zip_code = db.Column(db.String(10), primary_key=True)
     county_name = db.Column(db.String(100), nullable=False)
+    lat = db.Column(db.Float)
+    lng = db.Column(db.Float)
+
 
 class Alert(db.Model):
     __tablename__ = 'alerts'
