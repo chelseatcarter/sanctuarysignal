@@ -1,5 +1,6 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
   <meta charset="UTF-8">
   <title>Alert Details – Sanctuary Signal</title>
@@ -9,20 +10,23 @@
       background-color: #F2F4F7;
       font-family: 'Segoe UI', sans-serif;
     }
+
     .card-custom {
       max-width: 700px;
       margin: 4rem auto;
       background-color: white;
       padding: 2rem;
       border-radius: 12px;
-      box-shadow: 0 6px 16px rgba(0,0,0,0.12);
+      box-shadow: 0 6px 16px rgba(0, 0, 0, 0.12);
     }
+
     .alert-photo {
       max-width: 100%;
       height: auto;
       border-radius: 8px;
       margin-bottom: 1rem;
     }
+
     .section-title {
       font-weight: bold;
       color: #3C2174;
@@ -30,27 +34,31 @@
     }
   </style>
 </head>
+
 <body>
 
-<div class="container">
-  <div class="card-custom">
-    <h2 class="text-center mb-4">Alert Details</h2>
+  <div class="container">
+    <div class="card-custom">
+      <h2 class="text-center mb-4">Alert Details</h2>
 
-    {% if alert.photo %}
-      <img src="{{ alert.photo }}" alt="Alert Photo" class="alert-photo">
-    {% endif %}
+      {% if alert.photo %}
+      <img src="{{ url_for('uploaded_file', filename=alert.photo) }}" alt="Alert Photo" class="alert-photo">
+      {% endif %}
 
-    <p><strong>Reported By:</strong> {{ alert.user.username }}</p>
-    <p><strong>Alert Type:</strong> {{ alert.alert_type }}</p>
-    <p><strong>Reported At:</strong> {{ alert.timestamp.strftime('%B %d, %Y at %I:%M %p') }}</p>
-    <p><strong>Address:</strong> {{ alert.address }}</p>
+      <p><strong>Reported By:</strong> {{ alert.user.username }}</p>
+      <p><strong>Alert Type:</strong> {{ alert.alert_type }}</p>
+      <p><strong>Reported At:</strong> {{ alert.timestamp.strftime('%B %d, %Y at %I:%M %p') }}</p>
+      <p><strong>Address:</strong> {{ alert.address }}</p>
 
-    <div class="section-title">Description:</div>
-    <p>{{ alert.description }}</p>
+      <div class="section-title">Description:</div>
+      <p>{{ alert.description }}</p>
 
-    <a href="/" class="btn btn-secondary mt-3">Back to Home</a>
+      <div class="text-center mt-4">
+        <a href="/" class="btn btn-secondary">
+          ← Back to Home
+        </a>
+      </div>
+    </div>
   </div>
-</div>
-
 </body>
 </html>

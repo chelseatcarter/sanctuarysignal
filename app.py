@@ -7,6 +7,10 @@ import json
 import os
 from dotenv import load_dotenv
 from twilio.rest import Client
+from werkzeug.utils import secure_filename
+from flask import send_from_directory
+
+load_dotenv()
 
 app = Flask(__name__)
 app.secret_key = 'super-secret-key'
@@ -15,18 +19,28 @@ app.secret_key = 'super-secret-key'
 app.config['SQLALCHEMY_DATABASE_URI'] = 'postgresql://admin:s23RnnVoH5OQL5rbsxqC8FI3MckaOsqZ@dpg-d1vcvher433s73fiogn0-a.ohio-postgres.render.com/sanctuarysignal'
 db.init_app(app)
 
+TWILIO_ACCOUNT_SID = os.getenv("TWILIO_ACCOUNT_SID")
+TWILIO_AUTH_TOKEN = os.getenv("TWILIO_AUTH_TOKEN")
+VERIFY_SID = os.getenv("TWILIO_VERIFY_SERVICE_SID")
+MESSAGING_SERVICE_SID = os.getenv("TWILIO_MESSAGING_SERVICE_SID")
+
+twilio_client = Client(TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN)
+
 @app.route('/')
 def home():
     user_id = session.get('user_id')
     user = User.query.get(user_id) if user_id else None
-    return render_template('home.html', user=user)
 
+    user_lat = None
+    user_lng = None
+    # If user is logged in, get their latitude and longitude from the zip code and display it on the map
+    if user and user.zip_code:
+        zip_record = ZipCode.query.filter_by(zip_code=user.zip_code).first()
+        if zip_record:
+            user_lat = zip_record.latitude
+            user_lng = zip_record.longitude
 
-TWILIO_ACCOUNT_SID = os.getenv("TWILIO_ACCOUNT_SID")
-TWILIO_AUTH_TOKEN = os.getenv("TWILIO_AUTH_TOKEN")
-VERIFY_SID = os.getenv("TWILIO_VERIFY_SERVICE_SID")
-twilio_client = Client(TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN)
-
+    return render_template('home.html', user=user, user_lat=user_lat, user_lng=user_lng)
 
 def is_valid_e164(number):
     return re.match(r'^\+[1-9]\d{1,14}$', number) is not None
@@ -64,7 +78,7 @@ def signup():
         db.session.add(user)
         db.session.commit()
 
-        verification = twilio_client.verify.services(VERIFY_SID).verifications.create(to=user.phone_number, channel='sms')
+        twilio_client.verify.services(VERIFY_SID).verifications.create(to=user.phone_number, channel='sms')
 
         return jsonify({"message": "Signup successful"}), 201
 
@@ -94,18 +108,6 @@ def verify():
 
     return jsonify({"message": "Phone number verified and user logged in!"}), 200
 
-@app.route('/debug/users')
-def list_users():
-    users = User.query.all()
-    return jsonify([
-        {
-            "id": user.id,
-            "username": user.username,
-            "first_name": user.first_name,
-            "phone": user.phone_number
-        } for user in users
-    ])
-
 @app.route('/login', methods=['GET', 'POST'])
 def login():
     if request.method == 'POST':
@@ -116,7 +118,7 @@ def login():
         if user and user.check_password(data['password']):
 
             if not user.verified:
-                verification = twilio_client.verify.services(VERIFY_SID).verifications.create(to=user.phone_number, channel='sms')
+                twilio_client.verify.services(VERIFY_SID).verifications.create(to=user.phone_number, channel='sms')
                 return jsonify({
                     "error": "Account not verified",
                     "phone_number": user.phone_number  # now the frontend can grab it
@@ -142,12 +144,11 @@ def logout():
     session.clear()
     return redirect('/login')
 
-
-
 def extract_zip_from_address(address):
     """Extract 5-digit ZIP code from a U.S. address string"""
     match = re.search(r'\b\d{5}\b', address)
     return match.group() if match else None
+
 def generate_alert_message(alert_type, address):
     alert_type = alert_type.lower()
     templates = {
@@ -159,21 +160,24 @@ def generate_alert_message(alert_type, address):
     }
     return templates.get(alert_type, f"🚨 Incident reported at {address}.")
 
-# from werkzeug.utils import secure_filename
 # from datetime import datetime
 # from models import Alert
 
 # # Set upload folder and allowed extensions
-# UPLOAD_FOLDER = 'uploads'
-# ALLOWED_EXTENSIONS = {'png', 'jpg', 'jpeg', 'gif'}
-# app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
+UPLOAD_FOLDER = 'uploads'
+ALLOWED_EXTENSIONS = {'png', 'jpg', 'jpeg', 'gif'}
+app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
 
-# # Create uploads folder if it doesn't exist
-# if not os.path.exists(UPLOAD_FOLDER):
-#     os.makedirs(UPLOAD_FOLDER)
+# Create uploads folder if it doesn't exist
+if not os.path.exists(UPLOAD_FOLDER):
+    os.makedirs(UPLOAD_FOLDER)
 
 def allowed_file(filename):
     return '.' in filename and filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
+
+@app.route('/uploads/<filename>')
+def uploaded_file(filename):
+    return send_from_directory(app.config['UPLOAD_FOLDER'], filename)
 
 @app.route('/report', methods=['GET', 'POST'])
 def report():
@@ -200,6 +204,11 @@ def report():
         body_message = generate_alert_message(alert_type, address)
         county_name = zip_record.county_name
 
+        filename = None
+        if photo_file and allowed_file(photo_file.filename):
+            filename = secure_filename(photo_file.filename)
+            photo_file.save(os.path.join(app.config['UPLOAD_FOLDER'], filename))
+
         # Save the alert
         alert = Alert(
             alert_type=alert_type,
@@ -208,27 +217,18 @@ def report():
             lng=float(lng),
             description=f"{alert_type.title()} reported at {address}.",
             user_id=user_id,
-            photo=photo_file.filename if photo_file else None
+            photo=filename
         )
         db.session.add(alert)
         db.session.commit()
-
-        # Twilio messaging setup
-        from twilio.rest import Client
-        account_sid = ''
-        auth_token = ''
-        messaging_service_sid = ''
-
-        client = Client(account_sid, auth_token)
-        
 
         # Find all verified & not banned users in the same county
         users = User.query.filter_by(county_name=county_name, verified=True, banned=False).all()
         for u in users:
             if is_valid_e164(u.phone_number):
                 try:
-                    message = client.messages.create(
-                        messaging_service_sid=messaging_service_sid,
+                    message = twilio_client.messages.create(
+                        messaging_service_sid=MESSAGING_SERVICE_SID,
                         body=body_message,
                         to=u.phone_number
                     )
@@ -240,54 +240,11 @@ def report():
 
     return render_template('report.html')
 
-
-
-
-# @app.route('/send_sms', methods=['POST'])
-# def send_sms():
-#     data = request.get_json()
-#     from_number = data.get("from_number")  # Supplied Twilio number
-#     county_name = data.get("county_name")  # County name for the alert
-#     message_body = data.get("message")
-
-#     if not all([from_number, county_name, message_body]):
-#         return jsonify({"error": "Missing from_number, county_name, or message"}), 400
-
-#     if not is_valid_e164(from_number):
-#         return jsonify({"error": "Invalid phone number format (must be E.164)"}), 400
-    
-#     # Get phone numbers of users in the county
-#     users = User.query.filter_by(county_name=county_name, verified=True, banned=False).all()
-#     phone_numbers = [u.phone_number for u in users if is_valid_e164(u.phone_number)]
-
-#     if not phone_numbers:
-#         return jsonify({"error": "No valid phone numbers found for this county"}), 404
-
-#     # Send SMS to all phone numbers
-#     results = []
-#     for to_number in phone_numbers:
-#         try:
-#             message = twilio_client.messages.create(
-#                 body=message_body,
-#                 from_=from_number,
-#                 to=to_number
-#             )
-#             results.append({"to": to_number, "status": "sent", "sid": message.sid})
-#         except Exception as e:
-#             results.append({"to": to_number, "status": "failed", "error": str(e)})
-
-#     return jsonify({"results": results}), 200
-
 @app.route('/init-db')
 def init_db():
     with app.app_context():
         db.create_all()
     return {'message': 'Database initialized successfully'}
-
-def extract_zip_from_address(address):
-    """Extract 5-digit ZIP code from a U.S. address string"""
-    match = re.search(r'\b\d{5}\b', address)
-    return match.group() if match else None
 
 @app.route('/api/events')
 def get_alerts_for_map():
@@ -304,6 +261,7 @@ def get_alerts_for_map():
                 county_name = zip_record.county_name
 
         events.append({
+            'id': alert.id,
             'lat': alert.lat,
             'lng': alert.lng,
             'title': alert.alert_type,
@@ -323,6 +281,7 @@ def display_list_events():
 
     for alert in alerts:
         events.append({
+            'id': alert.id,
             'username': alert.user.username,
             'timestamp': alert.timestamp.isoformat(),
             'address': alert.address,

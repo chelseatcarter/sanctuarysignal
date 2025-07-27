@@ -35,6 +35,10 @@
             margin-top: 40px;
             box-shadow: 0 4px 10px rgba(0, 0, 0, 0.15);
         }
+
+        .list-group-item a {
+            cursor: pointer;
+        }
     </style>
 </head>
 
@@ -81,20 +85,32 @@
     </div>
 
     <script>
+        const userLat = {{ user_lat | default (42.3314) | float }};
+        const userLng = {{ user_lng | default (-83.0458) | float }};
+    </script>
+
+    <script>
         async function initMap() {
             const response = await fetch('/api/events');
             const events = await response.json();
 
             const map = new google.maps.Map(document.getElementById('map'), {
                 zoom: 11,
-                center: { lat: 42.3314, lng: -83.0458 }  // Default to Detroit
+                center: { lat: userLat, lng: userLng }
             });
 
+            const recentList = document.getElementById("recent-incidents");
+            const now = new Date();
+
             events.forEach(event => {
-                new google.maps.Marker({
+                const marker = new google.maps.Marker({
                     position: { lat: event.lat, lng: event.lng },
                     map: map,
                     title: event.title || 'Reported Incident'
+                });
+
+                marker.addListener("click", () => {
+                    window.location.href = `/alerts/details/${event.id}`;
                 });
 
                 if (event.timestamp) {
@@ -103,12 +119,14 @@
 
                     if (diffHours <= 24) {
                         const li = document.createElement('li');
-                        li.className = "list-group-item";
                         li.innerHTML = `
+                        <a href="/alerts/details/${event.id}" class="text-decoration-none text-dark d-block">
                             <strong>${event.title || "Incident"}</strong><br>
                             ${event.description || ""}<br>
                             <small class="text-muted">${eventTime.toLocaleString()}</small>
+                        </a>
                         `;
+                        li.className = "list-group-item";
                         recentList.appendChild(li);
                     }
                 }
@@ -124,7 +142,7 @@
         <h3>Recent Reports (Last 24 Hours)</h3>
         <ul id="recent-incidents" class="list-group mt-3"></ul>
     </div>
-    
+
 </body>
 
 </html>
