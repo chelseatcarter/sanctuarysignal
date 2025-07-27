@@ -119,8 +119,7 @@
             events.forEach(event => {
                 const marker = new google.maps.Marker({
                     position: { lat: event.lat, lng: event.lng },
-                    map: map,
-                    title: `${event.alert_type} – ${event.username}`
+                    map: map
                 });
 
                 marker.addListener("click", () => {
