@@ -234,7 +234,8 @@ def report():
             lng=float(lng),
             description=description,
             user_id=user_id,
-            photo=photo_url
+            photo=photo_url,
+            zip_code=zip_code
         )
         db.session.add(alert)
         db.session.commit()
